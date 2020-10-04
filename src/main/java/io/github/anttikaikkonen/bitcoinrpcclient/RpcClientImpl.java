@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.anttikaikkonen.bitcoinrpcclient.models.Block;
 import io.github.anttikaikkonen.bitcoinrpcclient.models.BlockHeader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CompletableFuture;
@@ -46,10 +47,10 @@ public class RpcClientImpl implements RpcClient, Serializable {
             this.client.execute(post, new FutureCallback<HttpResponse>() {
                 @Override
                 public void completed(HttpResponse response) {
-                    try {
+                    try (InputStream content = response.getEntity().getContent()) {
                         long res = objectMapper.readTree(EntityUtils.toString(response.getEntity())).get("result").asLong();
                         resultFuture.complete(res);
-                    } catch (Exception ex) {
+                    } catch (Exception ex) { 
                         resultFuture.completeExceptionally(ex);
                     }
                 }
@@ -77,15 +78,15 @@ public class RpcClientImpl implements RpcClient, Serializable {
             HttpPost post = new HttpPost(url);
             ObjectNode body = objectMapper.createObjectNode().put("method", "getblockhash");
             body.putArray("params").add(height);
-
             post.setEntity(new StringEntity(objectMapper.writeValueAsString(body), JSON));
             CompletableFuture<String> resultFuture = new CompletableFuture<>();
             this.client.execute(post, new FutureCallback<HttpResponse>() {
                 @Override
                 public void completed(HttpResponse response) {
-                    try {
+                    try (InputStream content = response.getEntity().getContent()) {
                         resultFuture.complete(objectMapper.readTree(EntityUtils.toString(response.getEntity())).get("result").asText());
-                    } catch (Exception ex) {
+                        response.getEntity().getContent().close();
+                    } catch (Exception ex) { 
                         resultFuture.completeExceptionally(ex);
                     }
                 }
@@ -114,16 +115,16 @@ public class RpcClientImpl implements RpcClient, Serializable {
             int verbosity = 2;
             ObjectNode body = objectMapper.createObjectNode().put("method", "getblock");
             body.putArray("params").add(hash).add(verbosity);
-
             post.setEntity(new StringEntity(objectMapper.writeValueAsString(body), JSON));
             CompletableFuture<Block> resultFuture = new CompletableFuture<>();
             this.client.execute(post, new FutureCallback<HttpResponse>() {
                 @Override
                 public void completed(HttpResponse response) {
-                    try {
-                        JsonNode get = objectMapper.readTree(response.getEntity().getContent()).get("result");
+                    try (InputStream content = response.getEntity().getContent()) {
+                        JsonNode get = objectMapper.readTree(content).get("result");
+                        response.getEntity().getContent().close();
                         resultFuture.complete(objectMapper.treeToValue(get, Block.class));
-                    } catch (Exception ex) {
+                    } catch (Exception ex) { 
                         resultFuture.completeExceptionally(ex);
                     }
                 }
@@ -152,16 +153,16 @@ public class RpcClientImpl implements RpcClient, Serializable {
             HttpPost post = new HttpPost(url);
             ObjectNode body = objectMapper.createObjectNode().put("method", "getblockheader");
             body.putArray("params").add(hash);
-
             post.setEntity(new StringEntity(objectMapper.writeValueAsString(body), JSON));
+            //post.setHeader("Connection", "close");
             CompletableFuture<BlockHeader> resultFuture = new CompletableFuture<>();
             this.client.execute(post, new FutureCallback<HttpResponse>() {
                 @Override
                 public void completed(HttpResponse response) {
-                    try {
+                    try (InputStream content = response.getEntity().getContent()) {
                         JsonNode get = objectMapper.readTree(EntityUtils.toString(response.getEntity())).get("result");
                         resultFuture.complete(objectMapper.treeToValue(get, BlockHeader.class));
-                    } catch (Exception ex) {
+                    } catch (Exception ex) { 
                         resultFuture.completeExceptionally(ex);
                     }
                 }
